@@ -1,17 +1,18 @@
+import { prisma } from "@/lib/prisma"
+import { Role } from "@prisma/client"
 import { type NextRequest, NextResponse } from "next/server"
 import crypto from "crypto"
-
-const users: Map<string, any> = new Map()
 
 function hashPassword(password: string): string {
   return crypto.createHash("sha256").update(password).digest("hex")
 }
 
-function generateToken(userId: string): string {
+function generateToken(userId: string, role: Role): string {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64")
   const payload = Buffer.from(
     JSON.stringify({
       sub: userId,
+      role,
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 86400 * 7,
     }),
@@ -33,13 +34,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
     }
 
-    const user = users.get(email)
+    const normalizedEmail = String(email).toLowerCase()
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    })
 
     if (!user || user.password !== hashPassword(password)) {
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
-    const token = generateToken(user.id)
+    const token = generateToken(user.id, user.role)
 
     return NextResponse.json({
       message: "Login successful",
@@ -48,7 +53,7 @@ export async function POST(req: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: user.role.toLowerCase(),
       },
     })
   } catch (error) {

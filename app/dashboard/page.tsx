@@ -170,6 +170,7 @@ export default function DashboardPage() {
                   setShowForm(false)
                   setEditingTask(null)
                 }}
+                userRole={user?.role as "admin" | "user" | undefined}
               />
             )}
 

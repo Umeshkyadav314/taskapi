@@ -16,31 +16,44 @@ interface Task {
   createdAt: string
 }
 
+const ADMIN_STATUSES = ["pending", "in-progress", "completed"] as const
+const USER_STATUSES = ["pending"] as const
+
 interface TaskFormProps {
   task?: Task | null
   onTaskCreated: (task: Task) => void
   onTaskUpdated: (task: Task) => void
   onCancel: () => void
+  userRole?: "admin" | "user"
 }
 
-export default function TaskForm({ task, onTaskCreated, onTaskUpdated, onCancel }: TaskFormProps) {
-  const [formData, setFormData] = useState({
+export default function TaskForm({ task, onTaskCreated, onTaskUpdated, onCancel, userRole }: TaskFormProps) {
+  const statusOptions = (userRole === "admin" ? ADMIN_STATUSES : USER_STATUSES) as readonly string[]
+  const defaultStatus = statusOptions[0] ?? "pending"
+  const [formData, setFormData] = useState<{ title: string; description: string; status: string }>({
     title: "",
     description: "",
-    status: "pending",
+    status: defaultStatus,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
+    const fallbackStatus = statusOptions[0] ?? "pending"
     if (task) {
       setFormData({
         title: task.title,
         description: task.description,
-        status: task.status,
+        status: statusOptions.includes(task.status as string) ? task.status : fallbackStatus,
+      })
+    } else {
+      setFormData({
+        title: "",
+        description: "",
+        status: fallbackStatus,
       })
     }
-  }, [task])
+  }, [task, statusOptions])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -87,7 +100,7 @@ export default function TaskForm({ task, onTaskCreated, onTaskUpdated, onCancel 
         onTaskCreated(data.task)
       }
 
-      setFormData({ title: "", description: "", status: "pending" })
+      setFormData({ title: "", description: "", status: statusOptions[0] ?? "pending" })
     } catch (err) {
       setError("An error occurred. Please try again.")
       console.error(err)
@@ -133,11 +146,13 @@ export default function TaskForm({ task, onTaskCreated, onTaskUpdated, onCancel 
               name="status"
               value={formData.status}
               onChange={handleChange}
-              className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2 capitalize"
             >
-              <option value="pending">Pending</option>
-              <option value="in-progress">In Progress</option>
-              <option value="completed">Completed</option>
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option.replace("-", " ")}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex gap-2 pt-4">
